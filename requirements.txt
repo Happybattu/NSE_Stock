@@ -4,5 +4,5 @@ openpyxl
 requests
 pandas
 textblob
-plotly ta
+plotly
 numpy
