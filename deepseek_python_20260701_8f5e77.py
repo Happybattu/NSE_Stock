@@ -183,7 +183,7 @@ class AdvancedTechnicalIndicators:
         indicators = {}
         
         # Volume-based indicators
-        indicators['obv'] = ta.volume.OnBalanceVolume(close, volume).on_balance_volume()
+        indicators['obv'] = ta.volume.OnBalanceVolumeIndicator(close, volume).on_balance_volume()
         indicators['vwap'] = ta.volume.VolumeWeightedAveragePrice(high, low, close, volume).volume_weighted_average_price()
         
         # Volatility indicators
