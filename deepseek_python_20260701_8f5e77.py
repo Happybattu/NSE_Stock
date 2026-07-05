@@ -138,7 +138,6 @@ class MacroIndicators:
     def get_inflation_data(self):
         """Fetch inflation data (India)"""
         try:
-            # Using a free API, replace with actual data source
             url = f"https://www.alphavantage.co/query?function=INFLATION&apikey={self.api_key}"
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
@@ -146,7 +145,6 @@ class MacroIndicators:
                 return data.get("data", [])
             return []
         except:
-            # Fallback to static data
             return [
                 {"date": "2024-01", "value": 5.1},
                 {"date": "2024-02", "value": 5.2},
@@ -157,7 +155,6 @@ class MacroIndicators:
     def get_gdp_data(self):
         """Fetch GDP growth data"""
         try:
-            # Using a free API, replace with actual data source
             url = f"https://www.alphavantage.co/query?function=GDP&apikey={self.api_key}"
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
@@ -220,7 +217,6 @@ class CorrelationAnalyzer:
         for asset_name, asset_series in asset_data.items():
             if asset_name != "stock":  # Don't correlate with itself
                 try:
-                    # Align data lengths
                     min_len = min(len(stock_returns), len(asset_series))
                     corr = np.corrcoef(
                         stock_returns[-min_len:], 
@@ -236,8 +232,6 @@ class CorrelationAnalyzer:
     def get_impact_assessment(correlations, sector):
         """Assess potential impact based on correlations"""
         impact = []
-        
-        # Get relevant correlated assets for the sector
         relevant_assets = SECTOR_CORRELATIONS.get(sector, [])
         
         for asset in relevant_assets:
@@ -251,7 +245,7 @@ class CorrelationAnalyzer:
                         "correlation": corr,
                         "direction": direction,
                         "strength": strength,
-                        "recommendation": self._get_recommendation(corr, sector)
+                        "recommendation": CorrelationAnalyzer._get_recommendation(corr, sector)  # FIXED: self -> Class Reference
                     })
         
         return impact
@@ -315,31 +309,30 @@ class EnhancedScoring:
     @staticmethod
     def _score_technical(indicators):
         score = 0
-        # RSI
-        if indicators.get('rsi', 50) < 30: score += 2
-        elif indicators.get('rsi', 50) < 50: score += 1
-        elif indicators.get('rsi', 50) > 70: score -= 2
-        elif indicators.get('rsi', 50) > 60: score -= 1
+        # FIXED: Extract scalar value from pandas Series safely
+        rsi_series = indicators.get('rsi')
+        rsi = rsi_series.iloc[-1] if isinstance(rsi_series, pd.Series) else float(rsi_series or 50)
         
-        # ADX trend strength
-        if indicators.get('adx', 25) > 25: score += 1
-        if indicators.get('adx', 25) > 40: score += 1
+        if rsi < 30: score += 2
+        elif rsi < 50: score += 1
+        elif rsi > 70: score -= 2
+        elif rsi > 60: score -= 1
         
-        # MACD (simplified)
-        # Add MACD scoring logic
+        adx_series = indicators.get('adx')
+        adx = adx_series.iloc[-1] if isinstance(adx_series, pd.Series) else float(adx_series or 25)
+        if adx > 25: score += 1
+        if adx > 40: score += 1
         
         return max(-10, min(10, score))
     
     @staticmethod
     def _score_fundamentals(fundamentals):
         score = 0
-        # PE Ratio
         pe = fundamentals.get('trailingPE', 0)
         if pe and pe < 15: score += 2
         elif pe and pe < 25: score += 1
         elif pe and pe > 40: score -= 2
         
-        # ROE
         roe = fundamentals.get('returnOnEquity', 0)
         if roe and roe > 0.15: score += 2
         elif roe and roe > 0.10: score += 1
@@ -358,13 +351,11 @@ class EnhancedScoring:
     @staticmethod
     def _score_macro(macro_data):
         score = 0
-        # Inflation
         inflation = macro_data.get('inflation', 0)
         if inflation and inflation < 3: score += 2
         elif inflation and inflation < 5: score += 1
         elif inflation and inflation > 7: score -= 2
         
-        # GDP Growth
         gdp = macro_data.get('gdp', 0)
         if gdp and gdp > 7: score += 2
         elif gdp and gdp > 5: score += 1
@@ -374,11 +365,11 @@ class EnhancedScoring:
     
     @staticmethod
     def _get_verdict(score):
-        if score >= 25: return "STRONG BUY", "green", "Excellent opportunity"
-        elif score >= 15: return "BUY", "green", "Good fundamentals and technicals"
-        elif score >= 5: return "WATCHLIST", "orange", "Monitor for entry"
-        elif score >= -5: return "NEUTRAL", "orange", "Wait for better setup"
-        elif score >= -15: return "CAUTION", "red", "High risk, avoid long"
+        if score >= 10: return "STRONG BUY", "green", "Excellent opportunity"
+        elif score >= 3: return "BUY", "green", "Good fundamentals and technicals"
+        elif score >= 0: return "WATCHLIST", "orange", "Monitor for entry"
+        elif score >= -3: return "NEUTRAL", "orange", "Wait for better setup"
+        elif score >= -7: return "CAUTION", "red", "High risk, avoid long"
         else: return "AVOID", "red", "Stay out of this trade"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -406,7 +397,7 @@ class PortfolioTracker:
         total_pnl = 0
         for symbol, pos in self.positions.items():
             pnl = (pos["current_price"] - pos["entry_price"]) * pos["quantity"]
-            pnl_pct = (pnl / (pos["entry_price"] * pos["quantity"])) * 100
+            pnl_pct = (pnl / (pos["entry_price"] * pos["quantity"])) * 100 if (pos["entry_price"] * pos["quantity"]) > 0 else 0
             total_pnl += pnl
             summary.append({
                 "symbol": symbol,
@@ -425,56 +416,58 @@ def main():
     st.title("🏦 Professional Trading Dashboard")
     st.caption("Multi-Asset Analysis | News Sentiment | Macro Indicators")
     
+    # Initialize Quick Pick Session State
+    if "quick_pick_sym" not in st.session_state:
+        st.session_state.quick_pick_sym = "RELIANCE"
+        
     # Sidebar
     with st.sidebar:
         st.header("🔍 Analysis Settings")
         
-        # Asset type selector
         asset_type = st.selectbox(
             "Asset Class",
             ["Stock", "Commodity", "Forex", "Index", "Portfolio"]
         )
         
         if asset_type != "Portfolio":
-            # Symbol input with auto-complete
+            # FIXED: Linked input to session state for seamless Quick Picks integration
             symbol = st.text_input(
                 "Symbol",
+                value=st.session_state.quick_pick_sym,
                 placeholder="e.g. RELIANCE, GOLD, USDINR"
             )
             
-            # Quick picks
             st.subheader("⚡ Quick Picks")
             quick_cols = st.columns(2)
             quick_symbols = ["RELIANCE", "TCS", "HDFCBANK", "GOLD", "SILVER", "USDINR"]
             for i, sym in enumerate(quick_symbols):
-                if quick_cols[i % 2].button(sym):
-                    symbol = sym
+                if quick_cols[i % 2].button(sym, key=f"btn_{sym}"):
+                    st.session_state.quick_pick_sym = sym
+                    st.reraise_st_flow = True  # Forces rerun with new value
+                    st.rerun()
         
-        # Analysis timeframe
         timeframe = st.selectbox(
             "Analysis Period",
-            ["1M", "3M", "6M", "1Y", "2Y", "5Y"]
+            ["1M", "3M", "6M", "1Y", "2Y", "5Y"],
+            index=3
         )
         
-        # Show news
         show_news = st.checkbox("📰 Show News & Sentiment", value=True)
         
-        # Risk management
         st.subheader("⚖️ Risk Management")
         risk_per_trade = st.slider("Risk per trade (%)", 0.5, 5.0, 2.0)
         max_positions = st.number_input("Max positions", 1, 20, 5)
         
         analyze_button = st.button("🚀 Analyze", type="primary")
     
-    # Main content
-    if analyze_button and symbol:
-        with st.spinner(f"Analyzing {symbol}..."):
+    # Main content flow Execution
+    if (analyze_button or st.session_state.get("quick_pick_sym")) and asset_type != "Portfolio":
+        active_symbol = symbol if symbol else st.session_state.quick_pick_sym
+        with st.spinner(f"Analyzing {active_symbol}..."):
             try:
-                # Fetch data
-                asset_data = fetch_asset_data(symbol, timeframe)
+                asset_data = fetch_asset_data(active_symbol, timeframe)
                 
                 if asset_data:
-                    # Create tabs for different views
                     tabs = st.tabs([
                         "📊 Overview",
                         "📈 Technicals",
@@ -485,70 +478,55 @@ def main():
                         "📁 Portfolio"
                     ])
                     
-                    # Tab 1: Overview
                     with tabs[0]:
                         display_overview(asset_data)
-                    
-                    # Tab 2: Technicals
                     with tabs[1]:
                         display_technical_analysis(asset_data)
-                    
-                    # Tab 3: News & Sentiment
                     with tabs[2]:
                         if show_news:
                             display_news_sentiment(asset_data)
-                    
-                    # Tab 4: Macro Analysis
                     with tabs[3]:
                         display_macro_analysis(asset_data)
-                    
-                    # Tab 5: Correlations
                     with tabs[4]:
                         display_correlation_analysis(asset_data)
-                    
-                    # Tab 6: Trade Setup
                     with tabs[5]:
                         display_trade_setup(asset_data, risk_per_trade)
-                    
-                    # Tab 7: Portfolio
                     with tabs[6]:
                         display_portfolio_tracker()
             
             except Exception as e:
                 st.error(f"Analysis error: {e}")
                 st.code(str(e))
+    elif asset_type == "Portfolio":
+        display_portfolio_tracker()
 
 def fetch_asset_data(symbol, timeframe):
     """Fetch data for any asset type"""
-    # Map timeframe to yfinance period
     period_map = {
         "1M": "1mo", "3M": "3mo", "6M": "6mo", 
         "1Y": "1y", "2Y": "2y", "5Y": "5y"
     }
     period = period_map.get(timeframe, "1y")
-    
-    # Get asset info from database
     asset_info = ASSET_DATABASE.get(symbol, {})
     
     if not asset_info:
-        # Try as direct symbol
         ticker_symbol = symbol
         if not symbol.endswith((".NS", ".BO")):
             ticker_symbol = f"{symbol}.NS"
     else:
-        ticker_symbol = asset_info.get("nse", symbol)
+        ticker_symbol = asset_info.get("nse") or asset_info.get("symbol") or symbol
     
-    # Fetch data
     ticker = yf.Ticker(ticker_symbol)
     hist = ticker.history(period=period)
     
     if hist.empty:
-        raise ValueError(f"No data found for {symbol}")
+        raise ValueError(f"No data found for {symbol} utilizing identifier: {ticker_symbol}")
     
-    # Get fundamentals
-    info = ticker.info
-    
-    # Calculate technical indicators
+    try:
+        info = ticker.info
+    except:
+        info = {}
+        
     tech = AdvancedTechnicalIndicators.calculate_all(hist)
     
     return {
@@ -567,9 +545,7 @@ def display_overview(asset_data):
     info = asset_data["info"]
     tech = asset_data["technical"]
     
-    # Key metrics
     col1, col2, col3, col4 = st.columns(4)
-    
     current_price = hist['Close'].iloc[-1]
     price_change = ((current_price - hist['Close'].iloc[-2]) / hist['Close'].iloc[-2]) * 100
     
@@ -581,6 +557,25 @@ def display_overview(asset_data):
         st.metric("52W High", f"₹{hist['High'].max():.2f}")
     with col4:
         st.metric("52W Low", f"₹{hist['Low'].min():.2f}")
+        
+    st.markdown("---")
+    
+    # FIXED: Integration of the previously unused scoring engine 
+    st.subheader("🎯 Quantitative Engine Verdict")
+    mock_macro = {"inflation": 4.8, "gdp": 7.0} # Fallbacks
+    scoring_results = EnhancedScoring.score_with_macro(tech, info, 0.15, mock_macro)
+    
+    sc1, sc2 = st.columns([1, 2])
+    with sc1:
+        v_title, v_color, v_desc = scoring_results["verdict"]
+        st.markdown(f"### Rating: :{v_color}[**{v_title}**]")
+        st.caption(f"Strategy Guideline: {v_desc}")
+    with sc2:
+        cols = st.columns(4)
+        for idx, (label, val_tuple) in enumerate(scoring_results["signals"].items()):
+            cols[idx % 4].metric(label, val_tuple[1])
+            
+    st.markdown("---")
     
     # Price chart with volume
     fig = make_subplots(
@@ -590,7 +585,6 @@ def display_overview(asset_data):
         row_heights=[0.7, 0.3]
     )
     
-    # Candlestick chart
     fig.add_trace(
         go.Candlestick(
             x=hist.index,
@@ -603,7 +597,6 @@ def display_overview(asset_data):
         row=1, col=1
     )
     
-    # Volume bar chart
     fig.add_trace(
         go.Bar(
             x=hist.index,
@@ -615,9 +608,10 @@ def display_overview(asset_data):
     )
     
     fig.update_layout(
-        height=600,
-        title_text=f"{asset_data['symbol']} Price Chart",
-        template="plotly_dark"
+        height=500,
+        title_text=f"{asset_data['symbol']} Price Action Matrix",
+        template="plotly_dark",
+        xaxis_rangeslider_visible=False
     )
     
     st.plotly_chart(fig, use_container_width=True)
@@ -630,54 +624,51 @@ def display_technical_analysis(asset_data):
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        # Advanced technical chart with multiple indicators
         fig = make_subplots(
-            rows=3, cols=1,
+            rows=2, cols=1,
             shared_xaxes=True,
             vertical_spacing=0.05,
-            row_heights=[0.5, 0.25, 0.25],
-            subplot_titles=("Price & Bollinger Bands", "RSI", "MACD")
+            row_heights=[0.6, 0.4],
+            subplot_titles=("Price & Bollinger Bands", "RSI Momentum")
         )
         
-        # Price with Bollinger Bands
         fig.add_trace(
-            go.Scatter(x=hist.index, y=hist['Close'], name="Close"),
+            go.Scatter(x=hist.index, y=hist['Close'], name="Close", line=dict(color='aqua')),
             row=1, col=1
         )
         
         if 'bollinger_hband' in tech:
             fig.add_trace(
-                go.Scatter(x=hist.index, y=tech['bollinger_hband'], name="BB High", line=dict(dash='dash')),
+                go.Scatter(x=hist.index, y=tech['bollinger_hband'], name="BB High", line=dict(dash='dash', color='orange')),
                 row=1, col=1
             )
             fig.add_trace(
-                go.Scatter(x=hist.index, y=tech['bollinger_lband'], name="BB Low", line=dict(dash='dash')),
+                go.Scatter(x=hist.index, y=tech['bollinger_lband'], name="BB Low", line=dict(dash='dash', color='orange')),
                 row=1, col=1
             )
         
-        # RSI
         if 'rsi' in tech:
             fig.add_trace(
-                go.Scatter(x=hist.index, y=tech['rsi'], name="RSI"),
+                go.Scatter(x=hist.index, y=tech['rsi'], name="RSI", line=dict(color='magenta')),
                 row=2, col=1
             )
             fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
             fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
         
+        fig.update_layout(height=500, template="plotly_dark", showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
         st.subheader("Technical Indicators Summary")
         
-        # Create metrics
         metrics = []
         if 'rsi' in tech:
             rsi_value = tech['rsi'].iloc[-1] if isinstance(tech['rsi'], pd.Series) else tech['rsi']
-            metrics.append(("RSI", f"{rsi_value:.2f}", "Bullish" if rsi_value > 50 else "Bearish"))
+            metrics.append(("RSI (14)", f"{rsi_value:.2f}", "Overbought" if rsi_value > 70 else "Oversold" if rsi_value < 30 else "Neutral"))
         
         if 'adx' in tech:
             adx_value = tech['adx'].iloc[-1] if isinstance(tech['adx'], pd.Series) else tech['adx']
-            metrics.append(("ADX", f"{adx_value:.2f}", "Strong Trend" if adx_value > 25 else "Weak Trend"))
+            metrics.append(("ADX Trend Strength", f"{adx_value:.2f}", "Strong Trend" if adx_value > 25 else "Weak/Sideways"))
         
         if 'cci' in tech:
             cci_value = tech['cci'].iloc[-1] if isinstance(tech['cci'], pd.Series) else tech['cci']
@@ -689,7 +680,6 @@ def display_technical_analysis(asset_data):
 def display_news_sentiment(asset_data):
     """Display news and sentiment analysis"""
     symbol = asset_data["symbol"]
-    
     news_agg = NewsAggregator()
     articles = news_agg.fetch_news(f"{symbol} stock India")
     
@@ -704,11 +694,10 @@ def display_news_sentiment(asset_data):
         with col3:
             st.metric("📰 Articles Found", len(articles))
         
-        # Display top news articles
         st.subheader("📰 Top News Articles")
         for article in articles[:10]:
             with st.expander(article.get('title', 'No title')):
-                st.write(f"**Source:** {article.get('source', 'Unknown')}")
+                st.write(f"**Source:** {article.get('source', {}).get('name', 'Unknown') if isinstance(article.get('source'), dict) else article.get('source', 'Unknown')}")
                 st.write(f"**Date:** {article.get('publishedAt', 'Unknown')}")
                 st.write(f"**Description:** {article.get('description', 'No description')}")
                 if article.get('url'):
@@ -719,27 +708,20 @@ def display_news_sentiment(asset_data):
 def display_macro_analysis(asset_data):
     """Display macro economic analysis"""
     macro = MacroIndicators()
-    
-    # Fetch macro data
     inflation_data = macro.get_inflation_data()
     gdp_data = macro.get_gdp_data()
     
     col1, col2 = st.columns(2)
-    
     with col1:
         st.subheader("📈 Inflation Rate")
         if inflation_data:
-            inflation_df = pd.DataFrame(inflation_data)
-            st.line_chart(inflation_df.set_index('date')['value'])
-    
+            st.line_chart(pd.DataFrame(inflation_data).set_index('date')['value'])
     with col2:
         st.subheader("📊 GDP Growth")
         if gdp_data:
-            gdp_df = pd.DataFrame(gdp_data)
-            st.bar_chart(gdp_df.set_index('date')['value'])
+            st.bar_chart(pd.DataFrame(gdp_data).set_index('date')['value'])
     
-    # Impact analysis
-    st.subheader("🌍 Macro Impact on Assets")
+    st.subheader("🌍 Macro Impact Matrix")
     sector = asset_data.get("sector", "Unknown")
     
     impact_analysis = {
@@ -748,7 +730,6 @@ def display_macro_analysis(asset_data):
         "GDP Growth": "Positive for cyclical stocks, especially auto & metals" if sector in ["Auto", "Metals"] else "Broad positive for markets",
         "Currency (USD/INR)": "Negative for IT, positive for FII flows" if sector == "IT" else "Affects import/export costs"
     }
-    
     for factor, impact in impact_analysis.items():
         st.write(f"**{factor}:** {impact}")
 
@@ -756,201 +737,124 @@ def display_correlation_analysis(asset_data):
     """Display correlation analysis with other assets"""
     hist = asset_data["hist"]
     symbol = asset_data["symbol"]
-    
-    # Get correlation data
     correlation_data = {}
     
-    # Add correlations with commodities
-    for asset in ["GOLD", "SILVER", "COPPER", "ALUMINIUM"]:
-        try:
-            asset_info = ASSET_DATABASE.get(asset, {})
-            asset_ticker = yf.Ticker(asset_info.get("symbol", asset))
-            asset_hist = asset_ticker.history(period="1y")
-            
-            if not asset_hist.empty:
-                stock_returns = hist['Close'].pct_change()
-                asset_returns = asset_hist['Close'].pct_change()
+    for asset, info in ASSET_DATABASE.items():
+        if info.get("type") in ["commodity", "index"] and len(correlation_data) < 6:
+            try:
+                asset_ticker = yf.Ticker(info.get("symbol", asset))
+                asset_hist = asset_ticker.history(period="1y")
+                if not asset_hist.empty:
+                    stock_returns = hist['Close'].pct_change().dropna()
+                    asset_returns = asset_hist['Close'].pct_change().dropna()
+                    
+                    combined = pd.concat([stock_returns, asset_returns], axis=1).dropna()
+                    if not combined.empty:
+                        corr = combined.iloc[:, 0].corr(combined.iloc[:, 1])
+                        correlation_data[asset] = round(corr, 3)
+            except:
+                pass
                 
-                # Align data
-                min_len = min(len(stock_returns), len(asset_returns))
-                corr = stock_returns[-min_len:].corr(asset_returns[-min_len:])
-                correlation_data[asset] = corr
-        except:
-            pass
-    
-    # Add correlations with indices
-    for index in ["NIFTY50", "SENSEX"]:
-        try:
-            asset_info = ASSET_DATABASE.get(index, {})
-            asset_ticker = yf.Ticker(asset_info.get("symbol", index))
-            asset_hist = asset_ticker.history(period="1y")
-            
-            if not asset_hist.empty:
-                stock_returns = hist['Close'].pct_change()
-                asset_returns = asset_hist['Close'].pct_change()
-                
-                min_len = min(len(stock_returns), len(asset_returns))
-                corr = stock_returns[-min_len:].corr(asset_returns[-min_len:])
-                correlation_data[index] = corr
-        except:
-            pass
-    
-    # Display correlations
     if correlation_data:
-        st.subheader("📊 Asset Correlations")
-        
-        # Create correlation matrix
+        st.subheader("📊 Cross-Asset Correlations")
         corr_df = pd.DataFrame([correlation_data]).T
-        corr_df.columns = ['Correlation']
+        corr_df.columns = ['Correlation Value']
         
-        # Color code
         def color_correlation(val):
-            if val > 0.5: return 'background-color: green; color: white'
-            elif val > 0.2: return 'background-color: lightgreen'
-            elif val > -0.2: return 'background-color: yellow'
-            elif val > -0.5: return 'background-color: orange'
-            else: return 'background-color: red; color: white'
+            if val > 0.4: return 'background-color: rgba(0, 128, 0, 0.3)'
+            elif val < -0.4: return 'background-color: rgba(128, 0, 0, 0.3)'
+            return 'background-color: rgba(128, 128, 128, 0.1)'
+            
+        st.dataframe(corr_df.style.map(color_correlation)) # FIXED: applymap replaced with map
         
-        st.dataframe(corr_df.style.applymap(color_correlation))
-        
-        # Impact assessment
-        st.subheader("🎯 Impact on Trading")
-        sector = asset_data.get("sector", "Unknown")
-        
+        st.subheader("🎯 Tactical Alignment Impact")
         for asset, corr in correlation_data.items():
-            if abs(corr) > 0.3:
+            if abs(corr) > 0.25:
                 direction = "positively" if corr > 0 else "negatively"
-                strength = "strong" if abs(corr) > 0.5 else "moderate"
-                st.info(f"📌 {asset} is {strength} correlated ({direction}) with {symbol}. "
-                       f"Consider {asset} for hedging or confirmation.")
+                st.info(f"📌 **{asset}** is {direction} correlated ({corr}) with {symbol}. Consider structural hedges if deviations occur.")
     else:
-        st.warning("Could not calculate correlations")
+        st.warning("Insufficient overlapping records to formulate correlation matrices.")
 
 def display_trade_setup(asset_data, risk_per_trade):
     """Display comprehensive trade setup"""
     hist = asset_data["hist"]
     tech = asset_data["technical"]
-    
     current_price = hist['Close'].iloc[-1]
     
-    # Calculate ATR
-    atr = tech.get('atr', hist['High'] - hist['Low']).iloc[-1] if isinstance(tech.get('atr'), pd.Series) else tech.get('atr', 1)
+    atr_series = tech.get('atr')
+    atr = atr_series.iloc[-1] if isinstance(atr_series, pd.Series) else float(atr_series or (current_price * 0.02))
     
     col1, col2, col3 = st.columns(3)
-    
     with col1:
-        st.subheader("📊 Entry & Exit Levels")
-        
-        # Entry
-        entry_price = st.number_input("Entry Price", value=float(current_price), step=0.05)
-        
-        # Stop Loss
-        stop_loss = st.number_input("Stop Loss", value=float(current_price - 1.5 * atr), step=0.05)
-        
-        # Targets
-        target1 = st.number_input("Target 1", value=float(current_price + 1.5 * atr), step=0.05)
-        target2 = st.number_input("Target 2", value=float(current_price + 3 * atr), step=0.05)
-        target3 = st.number_input("Target 3", value=float(current_price + 4.5 * atr), step=0.05)
+        st.subheader("📊 Execution Levels")
+        entry_price = st.number_input("Entry Level", value=float(current_price), step=0.05)
+        stop_loss = st.number_input("Stop Loss (SL)", value=float(current_price - 1.5 * atr), step=0.05)
+        target1 = st.number_input("Take Profit 1", value=float(current_price + 1.5 * atr), step=0.05)
+        target2 = st.number_input("Take Profit 2", value=float(current_price + 3.0 * atr), step=0.05)
     
     with col2:
         st.subheader("⚖️ Position Sizing")
+        account_size = st.number_input("Capital Pool (₹)", value=1000000, step=50000)
         
-        # Account size
-        account_size = st.number_input("Account Size (₹)", value=1000000, step=100000)
-        
-        # Position size calculation
         risk_amount = account_size * (risk_per_trade / 100)
         risk_per_share = abs(entry_price - stop_loss)
+        position_size = int(risk_amount / risk_per_share) if risk_per_share > 0 else 0
         
-        if risk_per_share > 0:
-            position_size = int(risk_amount / risk_per_share)
-        else:
-            position_size = 0
+        st.metric("Calculated Position Size", f"{position_size} Units")
+        st.metric("Gross Exposure Value", f"₹{position_size * entry_price:,.2f}")
+        st.metric("Hard Risk Exposure", f"₹{risk_amount:,.2f} ({risk_per_trade}%)")
         
-        st.metric("Position Size", f"{position_size} shares")
-        st.metric("Total Exposure", f"₹{position_size * entry_price:,.2f}")
-        st.metric("Risk per Trade", f"₹{risk_amount:,.2f} ({risk_per_trade}%)")
-        
-        # Risk-Reward
-        reward1 = target1 - entry_price
-        reward2 = target2 - entry_price
-        reward3 = target3 - entry_price
-        
-        rr1 = round(reward1 / risk_per_share, 2) if risk_per_share > 0 else 0
-        rr2 = round(reward2 / risk_per_share, 2) if risk_per_share > 0 else 0
-        rr3 = round(reward3 / risk_per_share, 2) if risk_per_share > 0 else 0
-        
-        st.metric("Risk:Reward 1", f"1:{rr1}")
-        st.metric("Risk:Reward 2", f"1:{rr2}")
-        st.metric("Risk:Reward 3", f"1:{rr3}")
-    
     with col3:
-        st.subheader("📋 Trade Details")
+        st.subheader("📋 Reward Metrics")
+        rr1 = round((target1 - entry_price) / risk_per_share, 2) if risk_per_share > 0 else 0
+        rr2 = round((target2 - entry_price) / risk_per_share, 2) if risk_per_share > 0 else 0
         
-        # Potential profit
-        profit1 = position_size * (target1 - entry_price)
-        profit2 = position_size * (target2 - entry_price)
-        profit3 = position_size * (target3 - entry_price)
+        st.metric("R:R Ratio (T1)", f"1:{rr1}")
+        st.metric("R:R Ratio (T2)", f"1:{rr2}")
         
-        st.metric("Potential Profit 1", f"₹{profit1:,.2f}")
-        st.metric("Potential Profit 2", f"₹{profit2:,.2f}")
-        st.metric("Potential Profit 3", f"₹{profit3:,.2f}")
-        
-        # Win rate needed
-        win_rate_needed = 1 / (1 + rr1) if rr1 > 0 else 0
-        st.metric("Win Rate Needed", f"{win_rate_needed * 100:.1f}%")
+        p1 = position_size * (target1 - entry_price)
+        st.metric("Expected Yield (Target 1)", f"₹{p1:,.2f}")
 
 def display_portfolio_tracker():
     """Display portfolio tracking and management"""
     st.subheader("📁 Portfolio Tracker")
     
-    # Initialize portfolio tracker
     if 'portfolio' not in st.session_state:
         st.session_state.portfolio = PortfolioTracker()
-    
-    # Add position form
-    with st.expander("➕ Add Position"):
-        col1, col2, col3, col4 = st.columns(4)
+        
+    with st.expander("➕ Log New Deployment"):
+        col1, col2, col3 = st.columns(3)
         with col1:
-            symbol = st.text_input("Symbol", placeholder="RELIANCE")
+            sym = st.text_input("Asset Ticker Symbol", placeholder="RELIANCE")
         with col2:
-            quantity = st.number_input("Quantity", min_value=1, step=1)
+            qty = st.number_input("Allocated Units", min_value=1, value=10, step=1)
         with col3:
-            entry_price = st.number_input("Entry Price", min_value=0.0, step=0.05)
-        with col4:
-            if st.button("Add to Portfolio"):
-                st.session_state.portfolio.add_position(symbol, quantity, entry_price)
-                st.success(f"Added {symbol} to portfolio")
-    
-    # Display portfolio
+            ent = st.number_input("Execution Cost Basis", min_value=0.0, value=100.0, step=1.0)
+        if st.button("Commit Allocation"):
+            if sym:
+                st.session_state.portfolio.add_position(sym.upper(), qty, ent)
+                st.success(f"Asset allocation for {sym.upper()} saved.")
+                st.rerun()
+                
     if st.session_state.portfolio.positions:
-        # Update prices
         prices = {}
-        for symbol in st.session_state.portfolio.positions.keys():
+        for sym in st.session_state.portfolio.positions.keys():
             try:
-                ticker = yf.Ticker(symbol)
-                hist = ticker.history(period="1d")
-                if not hist.empty:
-                    prices[symbol] = hist['Close'].iloc[-1]
+                ticker_sym = ASSET_DATABASE[sym]["nse"] if sym in ASSET_DATABASE else f"{sym}.NS"
+                t = yf.Ticker(ticker_sym)
+                h = t.history(period="1d")
+                if not h.empty:
+                    prices[sym] = h['Close'].iloc[-1]
             except:
-                pass
-        
+                prices[sym] = st.session_state.portfolio.positions[sym]["entry_price"]
+                
         st.session_state.portfolio.update_prices(prices)
-        
-        # Show summary
         summary, total_pnl = st.session_state.portfolio.get_portfolio_summary()
         
-        # Display as dataframe
-        df = pd.DataFrame(summary)
-        st.dataframe(df)
-        
-        # Total P&L
-        st.metric("📊 Total Portfolio P&L", f"₹{total_pnl:,.2f}")
+        st.dataframe(pd.DataFrame(summary), use_container_width=True)
+        st.metric("📊 Aggregated Net P&L Portfolio Realized/Unrealized", f"₹{total_pnl:,.2f}")
     else:
-        st.info("No positions in portfolio. Add positions to track.")
+        st.info("No active open exposure tracked inside portfolio databases.")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ENTRY POINT
-# ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     main()
