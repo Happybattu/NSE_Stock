@@ -5,5 +5,5 @@ requests
 pandas
 textblob
 plotly
-ta
+ta.volume
 numpy
