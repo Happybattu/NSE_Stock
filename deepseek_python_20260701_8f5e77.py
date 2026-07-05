@@ -31,25 +31,51 @@ NEWS_API_KEY = "YOUR_NEWS_API_KEY"  # Get from newsapi.org
 ALPHA_VANTAGE_KEY = "YOUR_ALPHA_VANTAGE_KEY"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ASSET DATABASE
+# EXPANDED ASSET DATABASE (Expanded to include major Nifty 50 constituents)
 # ─────────────────────────────────────────────────────────────────────────────
 ASSET_DATABASE = {
-    # Indian Stocks
-    "RELIANCE": {"type": "stock", "sector": "Energy", "nse": "RELIANCE.NS"},
-    "TCS": {"type": "stock", "sector": "IT", "nse": "TCS.NS"},
-    "INFY": {"type": "stock", "sector": "IT", "nse": "INFY.NS"},
+    # Banking & Financials
     "HDFCBANK": {"type": "stock", "sector": "Banking", "nse": "HDFCBANK.NS"},
     "ICICIBANK": {"type": "stock", "sector": "Banking", "nse": "ICICIBANK.NS"},
     "SBIN": {"type": "stock", "sector": "Banking", "nse": "SBIN.NS"},
-    "BHARTIARTL": {"type": "stock", "sector": "Telecom", "nse": "BHARTIARTL.NS"},
+    "KOTAKBANK": {"type": "stock", "sector": "Banking", "nse": "KOTAKBANK.NS"},
+    "AXISBANK": {"type": "stock", "sector": "Banking", "nse": "AXISBANK.NS"},
+    "BAJFINANCE": {"type": "stock", "sector": "Financials", "nse": "BAJFINANCE.NS"},
+    
+    # IT Sector
+    "TCS": {"type": "stock", "sector": "IT", "nse": "TCS.NS"},
+    "INFY": {"type": "stock", "sector": "IT", "nse": "INFY.NS"},
+    "WIPRO": {"type": "stock", "sector": "IT", "nse": "WIPRO.NS"},
+    "HCLTECH": {"type": "stock", "sector": "IT", "nse": "HCLTECH.NS"},
+    "TECHM": {"type": "stock", "sector": "IT", "nse": "TECHM.NS"},
+    
+    # Energy & Utilities
+    "RELIANCE": {"type": "stock", "sector": "Energy", "nse": "RELIANCE.NS"},
+    "NTPC": {"type": "stock", "sector": "Energy", "nse": "NTPC.NS"},
+    "POWERGRID": {"type": "stock", "sector": "Energy", "nse": "POWERGRID.NS"},
+    "ONGC": {"type": "stock", "sector": "Energy", "nse": "ONGC.NS"},
+    "ADANIENT": {"type": "stock", "sector": "Energy", "nse": "ADANIENT.NS"},
+    
+    # Auto & Manufacturing
     "TATAMOTORS": {"type": "stock", "sector": "Auto", "nse": "TATAMOTORS.NS"},
+    "MARUTI": {"type": "stock", "sector": "Auto", "nse": "MARUTI.NS"},
+    "M&M": {"type": "stock", "sector": "Auto", "nse": "M&M.NS"},
+    "EICHERMOT": {"type": "stock", "sector": "Auto", "nse": "EICHERMOT.NS"},
+    
+    # Metals & Mining
     "TATASTEEL": {"type": "stock", "sector": "Metals", "nse": "TATASTEEL.NS"},
     "HINDALCO": {"type": "stock", "sector": "Metals", "nse": "HINDALCO.NS"},
     "JSWSTEEL": {"type": "stock", "sector": "Metals", "nse": "JSWSTEEL.NS"},
     "VEDL": {"type": "stock", "sector": "Metals", "nse": "VEDL.NS"},
-    "ADANIENT": {"type": "stock", "sector": "Energy", "nse": "ADANIENT.NS"},
+    "COALINDIA": {"type": "stock", "sector": "Metals", "nse": "COALINDIA.NS"},
+
+    # Consumer Goods & Pharma
+    "ITC": {"type": "stock", "sector": "FMCG", "nse": "ITC.NS"},
+    "HINDUNILVR": {"type": "stock", "sector": "FMCG", "nse": "HINDUNILVR.NS"},
+    "SUNPHARMA": {"type": "stock", "sector": "Pharma", "nse": "SUNPHARMA.NS"},
+    "BHARTIARTL": {"type": "stock", "sector": "Telecom", "nse": "BHARTIARTL.NS"},
     
-    # Commodities (Metals)
+    # Commodities (Global Metals)
     "GOLD": {"type": "commodity", "symbol": "GC=F", "name": "Gold"},
     "SILVER": {"type": "commodity", "symbol": "SI=F", "name": "Silver"},
     "COPPER": {"type": "commodity", "symbol": "HG=F", "name": "Copper"},
@@ -73,6 +99,9 @@ SECTOR_CORRELATIONS = {
     "Banking": ["USDINR", "NIFTY50"],
     "IT": ["USDINR", "NIFTY50"],
     "Auto": ["ALUMINIUM", "COPPER", "USDINR"],
+    "FMCG": ["NIFTY50"],
+    "Pharma": ["USDINR"],
+    "Telecom": ["NIFTY50"]
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -83,7 +112,6 @@ class NewsAggregator:
         self.api_key = NEWS_API_KEY
         
     def fetch_news(self, query, days=3):
-        """Fetch news from multiple sources"""
         try:
             url = f"https://newsapi.org/v2/everything"
             params = {
@@ -103,9 +131,8 @@ class NewsAggregator:
             return []
     
     def analyze_sentiment(self, articles):
-        """Analyze sentiment of news articles"""
         sentiments = []
-        for article in articles[:20]:  # Limit for performance
+        for article in articles[:20]:
             if article.get("description"):
                 blob = TextBlob(article["description"])
                 sentiments.append({
@@ -118,7 +145,6 @@ class NewsAggregator:
                     "publishedAt": article.get("publishedAt", "")
                 })
         
-        # Calculate aggregate sentiment
         if sentiments:
             avg_sentiment = np.mean([s["sentiment"] for s in sentiments])
             sentiment_rating = "Bullish" if avg_sentiment > 0.1 else "Bearish" if avg_sentiment < -0.1 else "Neutral"
@@ -136,7 +162,6 @@ class MacroIndicators:
         self.api_key = ALPHA_VANTAGE_KEY
         
     def get_inflation_data(self):
-        """Fetch inflation data (India)"""
         try:
             url = f"https://www.alphavantage.co/query?function=INFLATION&apikey={self.api_key}"
             response = requests.get(url, timeout=10)
@@ -153,7 +178,6 @@ class MacroIndicators:
             ]
     
     def get_gdp_data(self):
-        """Fetch GDP growth data"""
         try:
             url = f"https://www.alphavantage.co/query?function=GDP&apikey={self.api_key}"
             response = requests.get(url, timeout=10)
@@ -169,12 +193,11 @@ class MacroIndicators:
             ]
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ENHANCED TECHNICAL INDICATORS (ALL TA ERRORS FIXED HERE)
+# ENHANCED TECHNICAL INDICATORS
 # ─────────────────────────────────────────────────────────────────────────────
 class AdvancedTechnicalIndicators:
     @staticmethod
     def calculate_all(df):
-        """Calculate comprehensive technical indicators"""
         close = df['Close']
         high = df['High']
         low = df['Low']
@@ -182,22 +205,15 @@ class AdvancedTechnicalIndicators:
         
         indicators = {}
         
-        # Volume-based indicators (FIXED CLASS NAMES)
         indicators['obv'] = ta.volume.OnBalanceVolumeIndicator(close, volume).on_balance_volume()
         indicators['vwap'] = ta.volume.VolumeWeightedAveragePrice(high, low, close, volume).volume_weighted_average_price()
-        
-        # Volatility indicators
         indicators['atr'] = ta.volatility.AverageTrueRange(high, low, close).average_true_range()
         indicators['bollinger_hband'] = ta.volatility.BollingerBands(close).bollinger_hband()
         indicators['bollinger_lband'] = ta.volatility.BollingerBands(close).bollinger_lband()
-        
-        # Trend indicators (FIXED CCI CLASS & METHOD NAME)
         indicators['adx'] = ta.trend.ADXIndicator(high, low, close).adx()
         indicators['plus_di'] = ta.trend.ADXIndicator(high, low, close).adx_pos()
         indicators['minus_di'] = ta.trend.ADXIndicator(high, low, close).adx_neg()
         indicators['cci'] = ta.trend.CCIIndicator(high, low, close).cci()
-        
-        # Momentum indicators (FIXED WILLIAMS CLASS NAME)
         indicators['rsi'] = ta.momentum.RSIIndicator(close).rsi()
         indicators['stoch_k'] = ta.momentum.StochasticOscillator(high, low, close).stoch()
         indicators['stoch_d'] = ta.momentum.StochasticOscillator(high, low, close).stoch_signal()
@@ -211,29 +227,21 @@ class AdvancedTechnicalIndicators:
 class CorrelationAnalyzer:
     @staticmethod
     def calculate_correlations(stock_returns, asset_data):
-        """Calculate correlations between stock and various assets"""
         correlations = {}
-        
         for asset_name, asset_series in asset_data.items():
-            if asset_name != "stock":  # Don't correlate with itself
+            if asset_name != "stock":
                 try:
                     min_len = min(len(stock_returns), len(asset_series))
-                    corr = np.corrcoef(
-                        stock_returns[-min_len:], 
-                        asset_series[-min_len:]
-                    )[0, 1]
+                    corr = np.corrcoef(stock_returns[-min_len:], asset_series[-min_len:])[0, 1]
                     correlations[asset_name] = round(corr, 3)
                 except:
                     correlations[asset_name] = 0
-        
         return correlations
     
     @staticmethod
     def get_impact_assessment(correlations, sector):
-        """Assess potential impact based on correlations"""
         impact = []
         relevant_assets = SECTOR_CORRELATIONS.get(sector, [])
-        
         for asset in relevant_assets:
             if asset in correlations:
                 corr = correlations[asset]
@@ -245,21 +253,16 @@ class CorrelationAnalyzer:
                         "correlation": corr,
                         "direction": direction,
                         "strength": strength,
-                        "recommendation": CorrelationAnalyzer._get_recommendation(corr, sector) # FIXED Scope
+                        "recommendation": CorrelationAnalyzer._get_recommendation(corr, sector)
                     })
-        
         return impact
     
     @staticmethod
     def _get_recommendation(corr, sector):
-        if corr > 0.5:
-            return "Hedge with inverse positions"
-        elif corr > 0.3:
-            return "Monitor for divergence"
-        elif corr < -0.3:
-            return "Potential diversification benefit"
-        else:
-            return "Low correlation - independent trade"
+        if corr > 0.5: return "Hedge with inverse positions"
+        elif corr > 0.3: return "Monitor for divergence"
+        elif corr < -0.3: return "Potential diversification benefit"
+        else: return "Low correlation - independent trade"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENHANCED STOCK SCORING WITH MACRO FACTORS
@@ -267,50 +270,37 @@ class CorrelationAnalyzer:
 class EnhancedScoring:
     @staticmethod
     def score_with_macro(tech_indicators, fundamentals, news_sentiment, macro_data):
-        """Enhanced scoring with macro factors"""
         score = 0
         signals = {}
         
-        # Technical Score
         tech_score = EnhancedScoring._score_technical(tech_indicators)
         score += tech_score
         signals["Technical Score"] = (tech_score, f"{tech_score}/10")
         
-        # Fundamental Score
         fund_score = EnhancedScoring._score_fundamentals(fundamentals)
         score += fund_score
         signals["Fundamental Score"] = (fund_score, f"{fund_score}/10")
         
-        # Sentiment Score
         sent_score = EnhancedScoring._score_sentiment(news_sentiment)
         score += sent_score
         signals["Sentiment Score"] = (sent_score, f"{sent_score}/10")
         
-        # Macro Score
         macro_score = EnhancedScoring._score_macro(macro_data)
         score += macro_score
         signals["Macro Score"] = (macro_score, f"{macro_score}/10")
         
-        # Final Verdict
         verdict = EnhancedScoring._get_verdict(score)
         
         return {
             "total_score": score,
             "signals": signals,
             "verdict": verdict,
-            "components": {
-                "technical": tech_score,
-                "fundamental": fund_score,
-                "sentiment": sent_score,
-                "macro": macro_score
-            }
+            "components": {"technical": tech_score, "fundamental": fund_score, "sentiment": sent_score, "macro": macro_score}
         }
     
     @staticmethod
     def _score_technical(indicators):
         score = 0
-        
-        # Extract scalar value out of pandas Series safely (Prevents Ambiguity Error)
         rsi_raw = indicators.get('rsi', 50)
         rsi = rsi_raw.iloc[-1] if isinstance(rsi_raw, pd.Series) else float(rsi_raw)
         
@@ -420,7 +410,6 @@ def main():
     if "quick_pick_sym" not in st.session_state:
         st.session_state.quick_pick_sym = ""
 
-    # Sidebar
     with st.sidebar:
         st.header("🔍 Analysis Settings")
         
@@ -433,12 +422,12 @@ def main():
             symbol = st.text_input(
                 "Symbol",
                 value=st.session_state.quick_pick_sym,
-                placeholder="e.g. RELIANCE, GOLD, USDINR"
-            )
+                placeholder="Type ANY ticker (e.g. TATAMOTORS, ITC, RELIANCE)"
+            ).upper().strip()
             
             st.subheader("⚡ Quick Picks")
             quick_cols = st.columns(2)
-            quick_symbols = ["RELIANCE", "TCS", "HDFCBANK", "GOLD", "SILVER", "USDINR"]
+            quick_symbols = ["RELIANCE", "TCS", "HDFCBANK", "ITC", "GOLD", "USDINR"]
             for i, sym in enumerate(quick_symbols):
                 if quick_cols[i % 2].button(sym, key=f"qp_{sym}"):
                     st.session_state.quick_pick_sym = sym
@@ -454,7 +443,6 @@ def main():
         
         st.subheader("⚖️ Risk Management")
         risk_per_trade = st.slider("Risk per trade (%)", 0.5, 5.0, 2.0)
-        max_positions = st.number_input("Max positions", 1, 20, 5)
         
         analyze_button = st.button("🚀 Analyze", type="primary")
     
@@ -466,56 +454,44 @@ def main():
                 
                 if asset_data:
                     tabs = st.tabs([
-                        "📊 Overview",
-                        "📈 Technicals",
-                        "📰 News & Sentiment",
-                        "🌍 Macro Analysis",
-                        "📊 Correlations",
-                        "🎯 Trade Setup",
-                        "📁 Portfolio"
+                        "📊 Overview", "📈 Technicals", "📰 News & Sentiment", 
+                        "🌍 Macro Analysis", "📊 Correlations", "🎯 Trade Setup", "📁 Portfolio"
                     ])
                     
-                    with tabs[0]:
-                        display_overview(asset_data)
-                    with tabs[1]:
-                        display_technical_analysis(asset_data)
-                    with tabs[2]:
-                        if show_news:
-                            display_news_sentiment(asset_data)
-                    with tabs[3]:
-                        display_macro_analysis(asset_data)
-                    with tabs[4]:
-                        display_correlation_analysis(asset_data)
-                    with tabs[5]:
-                        display_trade_setup(asset_data, risk_per_trade)
-                    with tabs[6]:
-                        display_portfolio_tracker()
+                    with tabs[0]: display_overview(asset_data)
+                    with tabs[1]: display_technical_analysis(asset_data)
+                    with tabs[2]: 
+                        if show_news: display_news_sentiment(asset_data)
+                    with tabs[3]: display_macro_analysis(asset_data)
+                    with tabs[4]: display_correlation_analysis(asset_data)
+                    with tabs[5]: display_trade_setup(asset_data, risk_per_trade)
+                    with tabs[6]: display_portfolio_tracker()
             
             except Exception as e:
                 st.error(f"Analysis error: {e}")
-                st.code(str(e))
 
 def fetch_asset_data(symbol, timeframe):
-    """Fetch data for any asset type"""
-    period_map = {
-        "1M": "1mo", "3M": "3mo", "6M": "6mo", 
-        "1Y": "1y", "2Y": "2y", "5Y": "5y"
-    }
+    """Fetch data dynamically for any database stock or custom user text entry"""
+    period_map = {"1M": "1mo", "3M": "3mo", "6M": "6mo", "1Y": "1y", "2Y": "2y", "5Y": "5y"}
     period = period_map.get(timeframe, "1y")
+    
     asset_info = ASSET_DATABASE.get(symbol, {})
     
+    # DYNAMIC FETCH RULE: If not in database, assume it's an Indian stock ticker
     if not asset_info:
-        ticker_symbol = symbol
-        if not symbol.endswith((".NS", ".BO")):
-            ticker_symbol = f"{symbol}.NS"
+        ticker_symbol = symbol if ("=" in symbol or "^" in symbol) else f"{symbol}.NS"
+        asset_type = "stock"
+        sector = "Unknown"
     else:
-        ticker_symbol = asset_info.get("nse", symbol)
+        ticker_symbol = asset_info.get("nse") or asset_info.get("symbol") or symbol
+        asset_type = asset_info.get("type", "stock")
+        sector = asset_info.get("sector", "Unknown")
     
     ticker = yf.Ticker(ticker_symbol)
     hist = ticker.history(period=period)
     
     if hist.empty:
-        raise ValueError(f"No data found for {symbol}")
+        raise ValueError(f"No active trading data found for symbol: '{ticker_symbol}'")
     
     try:
         info = ticker.info
@@ -530,12 +506,11 @@ def fetch_asset_data(symbol, timeframe):
         "hist": hist,
         "info": info,
         "technical": tech,
-        "asset_type": asset_info.get("type", "stock"),
-        "sector": asset_info.get("sector", "Unknown")
+        "asset_type": asset_type,
+        "sector": sector
     }
 
 def display_overview(asset_data):
-    """Display asset overview"""
     hist = asset_data["hist"]
     info = asset_data["info"]
     tech = asset_data["technical"]
@@ -544,14 +519,10 @@ def display_overview(asset_data):
     current_price = hist['Close'].iloc[-1]
     price_change = ((current_price - hist['Close'].iloc[-2]) / hist['Close'].iloc[-2]) * 100
     
-    with col1:
-        st.metric("Current Price", f"₹{current_price:.2f}", f"{price_change:.2f}%")
-    with col2:
-        st.metric("Volume", f"{hist['Volume'].iloc[-1]:,.0f}")
-    with col3:
-        st.metric("52W High", f"₹{hist['High'].max():.2f}")
-    with col4:
-        st.metric("52W Low", f"₹{hist['Low'].min():.2f}")
+    with col1: st.metric("Current Price", f"₹{current_price:.2f}", f"{price_change:.2f}%")
+    with col2: st.metric("Volume", f"{hist['Volume'].iloc[-1]:,.0f}")
+    with col3: st.metric("52W High", f"₹{hist['High'].max():.2f}")
+    with col4: st.metric("52W Low", f"₹{hist['Low'].min():.2f}")
     
     st.markdown("---")
     st.subheader("🎯 Quantitative Engine Verdict")
@@ -568,54 +539,27 @@ def display_overview(asset_data):
             cols[idx % 4].metric(label, val_tuple[1])
             
     st.markdown("---")
-    
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.03,
-        row_heights=[0.7, 0.3]
-    )
-    
-    fig.add_trace(
-        go.Candlestick(
-            x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name="Price"
-        ), row=1, col=1
-    )
-    fig.add_trace(
-        go.Bar(
-            x=hist.index, y=hist['Volume'], name="Volume", marker_color='rgba(0, 100, 200, 0.5)'
-        ), row=2, col=1
-    )
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.7, 0.3])
+    fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name="Price"), row=1, col=1)
+    fig.add_trace(go.Bar(x=hist.index, y=hist['Volume'], name="Volume", marker_color='rgba(0, 100, 200, 0.5)'), row=2, col=1)
     fig.update_layout(height=500, title_text=f"{asset_data['symbol']} Price Matrix", template="plotly_dark", xaxis_rangeslider_visible=False)
     st.plotly_chart(fig, use_container_width=True)
 
 def display_technical_analysis(asset_data):
-    """Display comprehensive technical analysis"""
     hist = asset_data["hist"]
     tech = asset_data["technical"]
-    
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        fig = make_subplots(
-            rows=2, cols=1,
-            shared_xaxes=True,
-            vertical_spacing=0.05,
-            row_heights=[0.6, 0.4],
-            subplot_titles=("Price & Bollinger Bands", "RSI Momentum")
-        )
-        
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.6, 0.4], subplot_titles=("Price & Bollinger Bands", "RSI Momentum"))
         fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name="Close", line=dict(color='aqua')), row=1, col=1)
-        
         if 'bollinger_hband' in tech:
             fig.add_trace(go.Scatter(x=hist.index, y=tech['bollinger_hband'], name="BB High", line=dict(dash='dash', color='orange')), row=1, col=1)
             fig.add_trace(go.Scatter(x=hist.index, y=tech['bollinger_lband'], name="BB Low", line=dict(dash='dash', color='orange')), row=1, col=1)
-        
         if 'rsi' in tech:
             fig.add_trace(go.Scatter(x=hist.index, y=tech['rsi'], name="RSI", line=dict(color='magenta')), row=2, col=1)
             fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
             fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
-        
         fig.update_layout(height=500, template="plotly_dark", showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
     
@@ -623,49 +567,37 @@ def display_technical_analysis(asset_data):
         st.subheader("Technical Indicators Summary")
         metrics = []
         if 'rsi' in tech:
-            rsi_value = tech['rsi'].iloc[-1] if isinstance(tech['rsi'], pd.Series) else tech['rsi']
-            metrics.append(("RSI (14)", f"{rsi_value:.2f}", "Overbought" if rsi_value > 70 else "Oversold" if rsi_value < 30 else "Neutral"))
-        
+            rsi_val = tech['rsi'].iloc[-1] if isinstance(tech['rsi'], pd.Series) else tech['rsi']
+            metrics.append(("RSI (14)", f"{rsi_val:.2f}", "Overbought" if rsi_val > 70 else "Oversold" if rsi_val < 30 else "Neutral"))
         if 'adx' in tech:
-            adx_value = tech['adx'].iloc[-1] if isinstance(tech['adx'], pd.Series) else tech['adx']
-            metrics.append(("ADX Trend Strength", f"{adx_value:.2f}", "Strong Trend" if adx_value > 25 else "Weak Trend"))
-        
+            adx_val = tech['adx'].iloc[-1] if isinstance(tech['adx'], pd.Series) else tech['adx']
+            metrics.append(("ADX Strength", f"{adx_val:.2f}", "Strong Trend" if adx_val > 25 else "Weak Trend"))
         if 'cci' in tech:
-            cci_value = tech['cci'].iloc[-1] if isinstance(tech['cci'], pd.Series) else tech['cci']
-            metrics.append(("CCI", f"{cci_value:.2f}", "Overbought" if cci_value > 100 else "Oversold" if cci_value < -100 else "Neutral"))
-        
-        for name, value, status in metrics:
-            st.metric(name, value, status)
+            cci_val = tech['cci'].iloc[-1] if isinstance(tech['cci'], pd.Series) else tech['cci']
+            metrics.append(("CCI", f"{cci_val:.2f}", "Overbought" if cci_val > 100 else "Oversold" if cci_val < -100 else "Neutral"))
+        for name, value, status in metrics: st.metric(name, value, status)
 
 def display_news_sentiment(asset_data):
-    """Display news and sentiment analysis"""
     symbol = asset_data["symbol"]
     news_agg = NewsAggregator()
     articles = news_agg.fetch_news(f"{symbol} stock India")
-    
     if articles:
         sentiments, avg_sentiment, sentiment_rating = news_agg.analyze_sentiment(articles)
         col1, col2, col3 = st.columns(3)
         with col1: st.metric("📊 Sentiment Score", f"{avg_sentiment:.3f}")
         with col2: st.metric("📈 Sentiment Rating", sentiment_rating)
         with col3: st.metric("📰 Articles Found", len(articles))
-        
         st.subheader("📰 Top News Articles")
         for article in articles[:10]:
             with st.expander(article.get('title', 'No title')):
                 st.write(f"**Source:** {article.get('source', {}).get('name', 'Unknown') if isinstance(article.get('source'), dict) else article.get('source', 'Unknown')}")
-                st.write(f"**Date:** {article.get('publishedAt', 'Unknown')}")
                 st.write(f"**Description:** {article.get('description', 'No description')}")
                 if article.get('url'): st.write(f"[Read more]({article['url']})")
-    else:
-        st.warning("No news articles found for this symbol")
+    else: st.warning("No news articles found for this symbol")
 
 def display_macro_analysis(asset_data):
-    """Display macro economic analysis"""
     macro = MacroIndicators()
-    inflation_data = macro.get_inflation_data()
-    gdp_data = macro.get_gdp_data()
-    
+    inflation_data, gdp_data = macro.get_inflation_data(), macro.get_gdp_data()
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("📈 Inflation Rate")
@@ -673,63 +605,29 @@ def display_macro_analysis(asset_data):
     with col2:
         st.subheader("📊 GDP Growth")
         if gdp_data: st.bar_chart(pd.DataFrame(gdp_data).set_index('date')['value'])
-    
-    st.subheader("🌍 Macro Impact Matrix")
-    sector = asset_data.get("sector", "Unknown")
-    impact_analysis = {
-        "Inflation": "Negative for equities, positive for commodities" if sector in ["Metals", "Energy"] else "Negative for equities, watch for rate hikes",
-        "Interest Rates": "Negative for growth stocks, positive for banks" if sector == "Banking" else "Watch for rate sensitive sectors",
-        "GDP Growth": "Positive for cyclical stocks, especially auto & metals" if sector in ["Auto", "Metals"] else "Broad positive for markets",
-        "Currency (USD/INR)": "Negative for IT, positive for FII flows" if sector == "IT" else "Affects import/export costs"
-    }
-    for factor, impact in impact_analysis.items():
-        st.write(f"**{factor}:** {impact}")
 
 def display_correlation_analysis(asset_data):
-    """Display correlation analysis with other assets"""
     hist = asset_data["hist"]
-    symbol = asset_data["symbol"]
     correlation_data = {}
-    
     for asset, info in ASSET_DATABASE.items():
         if info.get("type") in ["commodity", "index"] and len(correlation_data) < 6:
             try:
                 asset_ticker = yf.Ticker(info.get("symbol", asset))
                 asset_hist = asset_ticker.history(period="1y")
                 if not asset_hist.empty:
-                    stock_returns = hist['Close'].pct_change().dropna()
-                    asset_returns = asset_hist['Close'].pct_change().dropna()
-                    combined = pd.concat([stock_returns, asset_returns], axis=1).dropna()
-                    if not combined.empty:
-                        corr = combined.iloc[:, 0].corr(combined.iloc[:, 1])
-                        correlation_data[asset] = round(corr, 3)
-            except:
-                pass
-                
+                    combined = pd.concat([hist['Close'].pct_change(), asset_hist['Close'].pct_change()], axis=1).dropna()
+                    correlation_data[asset] = round(combined.iloc[:, 0].corr(combined.iloc[:, 1]), 3)
+            except: pass
     if correlation_data:
         st.subheader("📊 Cross-Asset Correlations")
         corr_df = pd.DataFrame([correlation_data]).T
         corr_df.columns = ['Correlation Value']
-        
-        def color_correlation(val):
-            if val > 0.4: return 'background-color: rgba(0, 128, 0, 0.3)'
-            elif val < -0.4: return 'background-color: rgba(128, 0, 0, 0.3)'
-            return 'background-color: rgba(128, 128, 128, 0.1)'
-            
-        st.dataframe(corr_df.style.map(color_correlation)) # FIXED: applymap replaced with map for modern pandas
-        
-        st.subheader("🎯 Tactical Alignment Impact")
-        for asset, corr in correlation_data.items():
-            if abs(corr) > 0.25:
-                direction = "positively" if corr > 0 else "negatively"
-                st.info(f"📌 **{asset}** is {direction} correlated ({corr}) with {symbol}. Consider structural hedges if deviations occur.")
+        st.dataframe(corr_df.style.map(lambda val: 'background-color: rgba(0, 128, 0, 0.3)' if val > 0.4 else 'background-color: rgba(128, 0, 0, 0.3)' if val < -0.4 else 'background-color: rgba(128, 128, 128, 0.1)'))
 
 def display_trade_setup(asset_data, risk_per_trade):
-    """Display comprehensive trade setup"""
     hist = asset_data["hist"]
     tech = asset_data["technical"]
     current_price = hist['Close'].iloc[-1]
-    
     atr_series = tech.get('atr')
     atr = atr_series.iloc[-1] if isinstance(atr_series, pd.Series) else float(atr_series or (current_price * 0.02))
     
@@ -740,43 +638,33 @@ def display_trade_setup(asset_data, risk_per_trade):
         stop_loss = st.number_input("Stop Loss (SL)", value=float(current_price - 1.5 * atr), step=0.05)
         target1 = st.number_input("Take Profit 1", value=float(current_price + 1.5 * atr), step=0.05)
         target2 = st.number_input("Take Profit 2", value=float(current_price + 3.0 * atr), step=0.05)
-    
     with col2:
         st.subheader("⚖️ Position Sizing")
         account_size = st.number_input("Capital Pool (₹)", value=1000000, step=50000)
         risk_amount = account_size * (risk_per_trade / 100)
         risk_per_share = abs(entry_price - stop_loss)
         position_size = int(risk_amount / risk_per_share) if risk_per_share > 0 else 0
-        
         st.metric("Calculated Position Size", f"{position_size} Units")
         st.metric("Gross Exposure Value", f"₹{position_size * entry_price:,.2f}")
-        st.metric("Hard Risk Exposure", f"₹{risk_amount:,.2f} ({risk_per_trade}%)")
-        
     with col3:
         st.subheader("📋 Reward Metrics")
         risk_per_share = abs(entry_price - stop_loss)
         rr1 = round((target1 - entry_price) / risk_per_share, 2) if risk_per_share > 0 else 0
-        rr2 = round((target2 - entry_price) / risk_per_share, 2) if risk_per_share > 0 else 0
         st.metric("R:R Ratio (T1)", f"1:{rr1}")
-        st.metric("R:R Ratio (T2)", f"1:{rr2}")
 
 def display_portfolio_tracker():
-    """Display portfolio tracking and management"""
     st.subheader("📁 Portfolio Tracker")
-    if 'portfolio' not in st.session_state:
-        st.session_state.portfolio = PortfolioTracker()
-        
+    if 'portfolio' not in st.session_state: st.session_state.portfolio = PortfolioTracker()
     with st.expander("➕ Log New Deployment"):
         col1, col2, col3 = st.columns(3)
-        with col1: sym = st.text_input("Asset Ticker Symbol", placeholder="RELIANCE")
-        with col2: qty = st.number_input("Allocated Units", min_value=1, value=10, step=1)
-        with col3: ent = st.number_input("Execution Cost Basis", min_value=0.0, value=100.0, step=1.0)
+        with col1: sym = st.text_input("Asset Ticker Symbol", placeholder="e.g. ZOMATO")
+        with col2: qty = st.number_input("Allocated Units", min_value=1, value=10)
+        with col3: ent = st.number_input("Execution Cost Basis", min_value=0.0, value=100.0)
         if st.button("Commit Allocation"):
             if sym:
-                st.session_state.portfolio.add_position(sym.upper(), qty, ent)
-                st.success(f"Asset allocation for {sym.upper()} saved.")
+                st.session_state.portfolio.add_position(sym.upper().strip(), qty, ent)
+                st.success(f"Position saved.")
                 st.rerun()
-                
     if st.session_state.portfolio.positions:
         prices = {}
         for sym in st.session_state.portfolio.positions.keys():
@@ -784,13 +672,10 @@ def display_portfolio_tracker():
                 ticker_sym = ASSET_DATABASE[sym]["nse"] if sym in ASSET_DATABASE else f"{sym}.NS"
                 h = yf.Ticker(ticker_sym).history(period="1d")
                 if not h.empty: prices[sym] = h['Close'].iloc[-1]
-            except:
-                prices[sym] = st.session_state.portfolio.positions[sym]["entry_price"]
-                
+            except: prices[sym] = st.session_state.portfolio.positions[sym]["entry_price"]
         st.session_state.portfolio.update_prices(prices)
         summary, total_pnl = st.session_state.portfolio.get_portfolio_summary()
         st.dataframe(pd.DataFrame(summary), use_container_width=True)
-        st.metric("📊 Aggregated Net P&L Portfolio", f"₹{total_pnl:,.2f}")
 
 if __name__ == "__main__":
     main()
