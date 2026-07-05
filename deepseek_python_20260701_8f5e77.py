@@ -182,7 +182,7 @@ class AdvancedTechnicalIndicators:
         
         indicators = {}
         
-        # Volume-based indicators (FIXED)
+        # Volume-based indicators (FIXED CLASS NAMES)
         indicators['obv'] = ta.volume.OnBalanceVolumeIndicator(close, volume).on_balance_volume()
         indicators['vwap'] = ta.volume.VolumeWeightedAveragePrice(high, low, close, volume).volume_weighted_average_price()
         
@@ -191,13 +191,13 @@ class AdvancedTechnicalIndicators:
         indicators['bollinger_hband'] = ta.volatility.BollingerBands(close).bollinger_hband()
         indicators['bollinger_lband'] = ta.volatility.BollingerBands(close).bollinger_lband()
         
-        # Trend indicators (FIXED)
+        # Trend indicators (FIXED CCI CLASS & METHOD NAME)
         indicators['adx'] = ta.trend.ADXIndicator(high, low, close).adx()
         indicators['plus_di'] = ta.trend.ADXIndicator(high, low, close).adx_pos()
         indicators['minus_di'] = ta.trend.ADXIndicator(high, low, close).adx_neg()
-        indicators['cci'] = ta.trend.CCIIndicator(high, low, close).commodity_channel_index()
+        indicators['cci'] = ta.trend.CCIIndicator(high, low, close).cci()
         
-        # Momentum indicators (FIXED)
+        # Momentum indicators (FIXED WILLIAMS CLASS NAME)
         indicators['rsi'] = ta.momentum.RSIIndicator(close).rsi()
         indicators['stoch_k'] = ta.momentum.StochasticOscillator(high, low, close).stoch()
         indicators['stoch_d'] = ta.momentum.StochasticOscillator(high, low, close).stoch_signal()
@@ -310,7 +310,7 @@ class EnhancedScoring:
     def _score_technical(indicators):
         score = 0
         
-        # Extract scalar value out of pandas Series safely
+        # Extract scalar value out of pandas Series safely (Prevents Ambiguity Error)
         rsi_raw = indicators.get('rsi', 50)
         rsi = rsi_raw.iloc[-1] if isinstance(rsi_raw, pd.Series) else float(rsi_raw)
         
@@ -459,7 +459,7 @@ def main():
         analyze_button = st.button("🚀 Analyze", type="primary")
     
     active_symbol = symbol if asset_type != "Portfolio" else ""
-    if analyze_button and active_symbol:
+    if (analyze_button and active_symbol) or (active_symbol and st.session_state.quick_pick_sym):
         with st.spinner(f"Analyzing {active_symbol}..."):
             try:
                 asset_data = fetch_asset_data(active_symbol, timeframe)
@@ -754,6 +754,7 @@ def display_trade_setup(asset_data, risk_per_trade):
         
     with col3:
         st.subheader("📋 Reward Metrics")
+        risk_per_share = abs(entry_price - stop_loss)
         rr1 = round((target1 - entry_price) / risk_per_share, 2) if risk_per_share > 0 else 0
         rr2 = round((target2 - entry_price) / risk_per_share, 2) if risk_per_share > 0 else 0
         st.metric("R:R Ratio (T1)", f"1:{rr1}")
